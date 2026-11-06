@@ -1,0 +1,153 @@
+package com.internshipportal.service;
+
+import com.internshipportal.model.User;
+import com.internshipportal.exception.InvalidInputException;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class UserService {
+
+    private static final UserService INSTANCE = new UserService();
+
+    private final Map<String, User> users = new ConcurrentHashMap<>();
+    private int nextUserId = 1;
+
+    // Default constructor with demonstration account
+    public UserService() {
+        User demoUser = new User(
+            nextUserId++,
+            "Ann",
+            "Ann@123",
+            "ann@gmail.com",
+            "Ann",
+            "",
+            "MCA",
+            "Software Development"
+        );
+
+        users.put(demoUser.getUsername().toLowerCase(), demoUser);
+    }
+
+    // Constructor used by Main.java
+    public UserService(User user) {
+        this();
+
+        if (user != null
+                && user.getUsername() != null
+                && !user.getUsername().trim().isEmpty()) {
+
+            users.put(user.getUsername().trim().toLowerCase(), user);
+
+            if (user.getUserId() >= nextUserId) {
+                nextUserId = user.getUserId() + 1;
+            }
+        }
+    }
+
+    // Return the shared service instance for servlets
+    public static UserService getInstance() {
+        return INSTANCE;
+    }
+
+    // Register a new user
+    public synchronized boolean registerUser(User user)
+            throws InvalidInputException {
+
+        if (user == null || !user.isValid()) {
+            throw new InvalidInputException(
+                "Please enter valid user details."
+            );
+        }
+
+        String username = user.getUsername().trim().toLowerCase();
+        String email = user.getEmail().trim().toLowerCase();
+
+        for (User existing : users.values()) {
+            if (existing.getUsername().equalsIgnoreCase(username)) {
+                throw new InvalidInputException(
+                    "Username already exists."
+                );
+            }
+
+            if (existing.getEmail().equalsIgnoreCase(email)) {
+                throw new InvalidInputException(
+                    "Email already exists."
+                );
+            }
+        }
+
+        user.setUserId(nextUserId++);
+        user.setUsername(user.getUsername().trim());
+        user.setEmail(user.getEmail().trim());
+
+        users.put(username, user);
+
+        return true;
+    }
+
+    // Authenticate username/email and password
+    public boolean authenticate(String usernameOrEmail, String password) {
+
+        if (usernameOrEmail == null || password == null) {
+            return false;
+        }
+
+        User user = findByUsernameOrEmail(usernameOrEmail.trim());
+
+        return user != null
+                && user.getPassword() != null
+                && user.getPassword().equals(password);
+    }
+
+    // Find a user by username or email
+    public User findByUsernameOrEmail(String usernameOrEmail) {
+
+        if (usernameOrEmail == null
+                || usernameOrEmail.trim().isEmpty()) {
+            return null;
+        }
+
+        String value = usernameOrEmail.trim();
+
+        User user = users.get(value.toLowerCase());
+
+        if (user != null) {
+            return user;
+        }
+
+        for (User existing : users.values()) {
+            if (existing.getEmail().equalsIgnoreCase(value)) {
+                return existing;
+            }
+        }
+
+        return null;
+    }
+
+    // Check whether a username exists
+    public boolean usernameExists(String username) {
+
+        if (username == null) {
+            return false;
+        }
+
+        return users.containsKey(username.trim().toLowerCase());
+    }
+
+    // Check whether an email exists
+    public boolean emailExists(String email) {
+
+        if (email == null) {
+            return false;
+        }
+
+        for (User user : users.values()) {
+            if (user.getEmail().equalsIgnoreCase(email.trim())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

@@ -1,0 +1,316 @@
+package com.internshipportal.model;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Model representing an internship opportunity in the CareerLaunch Portal.
+ * Used by the Internship Explorer, Internship Details, and Application pages.
+ */
+public class Internship {
+
+    private int id;
+    private String title;
+    private String company;
+    private String location;
+    private String workMode; // Remote, Hybrid, On-site
+    private String duration; // e.g., "3 Months"
+    private String stipend;  // e.g., "₹15,000 / month"
+    private String category; // e.g., "Java", "Web", "Data", "Security", "AI"
+    private List<String> skills;
+    private String description;
+    private List<String> responsibilities;
+    private String status = "ACTIVE";
+    private Integer postedBy;
+    private java.sql.Timestamp createdAt;
+    private java.sql.Timestamp updatedAt;
+
+    public Internship() {
+        this.skills = new ArrayList<>();
+        this.responsibilities = new ArrayList<>();
+    }
+
+    public Internship(int id, String title, String company, String location,
+                      String workMode, String duration, String stipend,
+                      String category, List<String> skills, String description,
+                      List<String> responsibilities) {
+        this.id = id;
+        this.title = title;
+        this.company = company;
+        this.location = location;
+        this.workMode = workMode;
+        this.duration = duration;
+        this.stipend = stipend;
+        this.category = category;
+        this.skills = skills != null ? skills : new ArrayList<>();
+        this.description = description;
+        this.responsibilities = responsibilities != null ? responsibilities : new ArrayList<>();
+        this.status = "ACTIVE";
+    }
+
+    public Internship(int id, String title, String company, String location,
+                      String workMode, String duration, String stipend,
+                      String category, List<String> skills, String description,
+                      List<String> responsibilities, String status) {
+        this(id, title, company, location, workMode, duration, stipend, category, skills, description, responsibilities);
+        this.status = (status != null && !status.trim().isEmpty()) ? status.trim().toUpperCase() : "ACTIVE";
+    }
+
+    // Getters and Setters
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getWorkMode() {
+        return workMode;
+    }
+
+    public void setWorkMode(String workMode) {
+        this.workMode = workMode;
+    }
+
+    public String getDuration() {
+        return duration;
+    }
+
+    public void setDuration(String duration) {
+        this.duration = duration;
+    }
+
+    public String getStipend() {
+        return stipend;
+    }
+
+    public void setStipend(String stipend) {
+        this.stipend = stipend;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public List<String> getSkills() {
+        return skills;
+    }
+
+    public void setSkills(List<String> skills) {
+        this.skills = skills;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public List<String> getResponsibilities() {
+        return responsibilities;
+    }
+
+    public void setResponsibilities(List<String> responsibilities) {
+        this.responsibilities = responsibilities;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Integer getPostedBy() {
+        return postedBy;
+    }
+
+    public void setPostedBy(Integer postedBy) {
+        this.postedBy = postedBy;
+    }
+
+    public java.sql.Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.sql.Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public java.sql.Timestamp getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(java.sql.Timestamp updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equalsIgnoreCase(this.status);
+    }
+
+    public String getSkillsString() {
+        if (skills == null || skills.isEmpty()) {
+            return "";
+        }
+        return String.join(", ", skills);
+    }
+
+    public String getResponsibilitiesString() {
+        if (responsibilities == null || responsibilities.isEmpty()) {
+            return "";
+        }
+        return String.join("\n", responsibilities);
+    }
+
+    /**
+     * Curated sample internships clearly identified for demonstration purposes.
+     */
+    public static List<Internship> getSampleInternships() {
+        List<Internship> list = new ArrayList<>();
+
+        list.add(new Internship(
+                1,
+                "Java Developer Intern",
+                "TechNova Solutions",
+                "Bengaluru",
+                "Hybrid",
+                "3 Months",
+                "₹15,000 / month",
+                "Java",
+                Arrays.asList("Java", "Spring Boot", "MySQL", "REST APIs"),
+                "Join our core backend engineering team to build scalable microservices and enterprise Java applications.",
+                Arrays.asList(
+                        "Design and implement RESTful endpoints using Java and Spring Boot.",
+                        "Write unit tests and perform code reviews with senior engineers.",
+                        "Optimize SQL database queries and contribute to caching layers."
+                )
+        ));
+
+        list.add(new Internship(
+                2,
+                "Web Development Intern",
+                "DigitalWorks Studio",
+                "Mumbai",
+                "Remote",
+                "6 Months",
+                "₹12,000 / month",
+                "Web",
+                Arrays.asList("HTML5", "CSS3", "JavaScript", "React", "Responsive Design"),
+                "Work alongside UI/UX designers and full-stack developers to craft modern, accessible web interfaces.",
+                Arrays.asList(
+                        "Convert wireframes into high-performance web pages.",
+                        "Implement responsive CSS layouts and interactive JavaScript components.",
+                        "Participate in daily agile standups and cross-browser testing."
+                )
+        ));
+
+        list.add(new Internship(
+                3,
+                "Data Analytics Intern",
+                "InnovateAI Analytics",
+                "Hyderabad",
+                "On-site",
+                "4 Months",
+                "₹18,000 / month",
+                "Data",
+                Arrays.asList("Python", "SQL", "Pandas", "Power BI", "Data Visualization"),
+                "Assist our business intelligence team in extracting insights from large student recruitment datasets.",
+                Arrays.asList(
+                        "Clean and preprocess multi-source datasets using Python and Pandas.",
+                        "Build interactive dashboards in Power BI and Google Data Studio.",
+                        "Generate weekly analytical reports for leadership meetings."
+                )
+        ));
+
+        list.add(new Internship(
+                4,
+                "Cloud & DevOps Intern",
+                "CloudCore Infrastructure",
+                "Pune",
+                "Remote",
+                "3 Months",
+                "₹14,000 / month",
+                "Cloud",
+                Arrays.asList("Linux", "Docker", "AWS", "Git", "CI/CD"),
+                "Learn modern continuous integration and cloud deployment workflows on AWS infrastructure.",
+                Arrays.asList(
+                        "Configure Docker containers for Java and Node.js microservices.",
+                        "Maintain CI/CD pipeline automation scripts.",
+                        "Monitor cloud server uptime and assist in disaster recovery tests."
+                )
+        ));
+
+        list.add(new Internship(
+                5,
+                "Cyber Security Analyst Intern",
+                "CyberShield Labs",
+                "Delhi NCR",
+                "Hybrid",
+                "6 Months",
+                "₹16,000 / month",
+                "Security",
+                Arrays.asList("Network Security", "Ethical Hacking", "OWASP", "VAPT", "Wireshark"),
+                "Collaborate with security analysts to perform vulnerability assessments and safeguard student data portals.",
+                Arrays.asList(
+                        "Perform vulnerability scanning using automated tools.",
+                        "Review codebases against OWASP Top 10 web application vulnerabilities.",
+                        "Document audit logs and help develop security awareness material."
+                )
+        ));
+
+        list.add(new Internship(
+                6,
+                "AI & Machine Learning Intern",
+                "NextGen Cognitive Systems",
+                "Chennai",
+                "Remote",
+                "4 Months",
+                "₹20,000 / month",
+                "AI",
+                Arrays.asList("Python", "TensorFlow", "Scikit-Learn", "NLP", "PyTorch"),
+                "Contribute to natural language processing models that match student resumes to internship descriptions.",
+                Arrays.asList(
+                        "Train NLP classification models on internship dataset corpora.",
+                        "Evaluate model precision, recall, and inference latency.",
+                        "Deploy model endpoints using FastAPI microservices."
+                )
+        ));
+
+        return Collections.unmodifiableList(list);
+    }
+}

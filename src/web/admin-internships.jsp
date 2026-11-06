@@ -1,0 +1,1123 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="com.internshipportal.model.User"%>
+<%@ page import="com.internshipportal.model.Internship"%>
+<%@ page import="com.internshipportal.service.InternshipService"%>
+<%@ page import="java.util.List"%>
+<%@ page import="java.util.ArrayList"%>
+<%@ page import="java.text.SimpleDateFormat"%>
+<%
+    // Prevent browser caching of protected admin interface
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+
+    // Server-side authentication and admin authorization check
+    User currentUser = (User) session.getAttribute("currentUser");
+    if (currentUser == null) {
+        currentUser = (User) session.getAttribute("user");
+    }
+    if (currentUser == null) {
+        response.sendRedirect(request.getContextPath() + "/login.html?error=unauthorized");
+        return;
+    }
+    if (!currentUser.isAdmin()) {
+        response.sendRedirect(request.getContextPath() + "/dashboard.jsp?error=access_denied");
+        return;
+    }
+
+    String fullName = currentUser.getFullName();
+    String initial = (fullName != null && !fullName.trim().isEmpty())
+            ? fullName.trim().substring(0, 1).toUpperCase()
+            : "A";
+
+    InternshipService internshipService = InternshipService.getInstance();
+    List<Internship> allInternships = null;
+    String dbError = null;
+
+    try {
+        allInternships = internshipService.getAllInternships();
+    } catch (Exception e) {
+        e.printStackTrace();
+        dbError = "Unable to retrieve internship listings from the database. Please try again later.";
+    }
+
+    if (allInternships == null) {
+        allInternships = new ArrayList<Internship>();
+    }
+
+    // Metric counts
+    int totalCount = allInternships.size();
+    int activeCount = 0;
+    int inactiveCount = 0;
+
+    for (Internship item : allInternships) {
+        if (item.isActive()) {
+            activeCount++;
+        } else {
+            inactiveCount++;
+        }
+    }
+
+    // Status filter from query parameter if any
+    String filterParam = request.getParameter("status");
+    if (filterParam != null) {
+        filterParam = filterParam.trim().toUpperCase();
+        if (filterParam.isEmpty() || "ALL".equals(filterParam)) {
+            filterParam = null;
+        }
+    }
+%>
+<%!
+    private String escapeHtml(String input) {
+        if (input == null) return "";
+        return input.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#x27;");
+    }
+
+    private String escapeJs(String input) {
+        if (input == null) return "";
+        return input.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("'", "\\'")
+                    .replace("\r", "")
+                    .replace("\n", "\\n");
+    }
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Internships | CareerLaunch Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-badge {
+            display: inline-block;
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 20px 0 26px 0;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+        }
+        .stat-card.active {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .stat-card .label {
+            color: #64748b;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-card .value {
+            font-size: 30px;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            background: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .filter-btn.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        .search-box {
+            position: relative;
+            min-width: 260px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 8px 14px 8px 34px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .search-icon {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .btn-add-new {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: white;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+        }
+        .btn-add-new:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+        }
+        .table-container {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+        .internships-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+        .internships-table th {
+            text-align: left;
+            padding: 14px 18px;
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .internships-table td {
+            padding: 16px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #1e1b4b;
+            vertical-align: middle;
+        }
+        .internships-table tr:hover {
+            background: #fafbfd;
+        }
+        .id-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .mode-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #eff6ff;
+            color: #1d4ed8;
+            margin-top: 3px;
+        }
+        .category-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        .status-badge-active {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .status-badge-inactive {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .actions-cell {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .btn-action-edit {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 6px;
+            transition: all 0.2s;
+        }
+        .btn-action-edit:hover {
+            background: #4338ca;
+        }
+        .btn-action-toggle {
+            border: 1px solid;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        .btn-action-deactivate {
+            border-color: #fca5a5;
+            color: #dc2626;
+        }
+        .btn-action-deactivate:hover {
+            background: #fef2f2;
+        }
+        .btn-action-activate {
+            border-color: #86efac;
+            color: #16a34a;
+        }
+        .btn-action-activate:hover {
+            background: #f0fdf4;
+        }
+        .alert-box {
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 4px solid #dc2626;
+        }
+        .alert-success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 4px solid #16a34a;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.65);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-box {
+            background: white;
+            border-radius: 16px;
+            max-width: 680px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            animation: modalFadeIn 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            border-radius: 16px 16px 0 0;
+        }
+        .modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .modal-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #94a3b8;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .modal-close-btn:hover {
+            color: #0f172a;
+            background: #e2e8f0;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #1e1b4b;
+            margin-bottom: 6px;
+        }
+        .form-label .req {
+            color: #dc2626;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13.5px;
+            background: white;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+        .form-help {
+            font-size: 11.5px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            background: #f8fafc;
+            border-radius: 0 0 16px 16px;
+        }
+        .btn-cancel {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-cancel:hover {
+            background: #e2e8f0;
+        }
+        .btn-submit {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 9px 22px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-submit:hover {
+            background: #4338ca;
+        }
+        .btn-submit:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        /* Toast notification */
+        .toast-msg {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #0f172a;
+            color: white;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            animation: toastSlideUp 0.3s ease;
+        }
+        @keyframes toastSlideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #dc2626, #b91c1c);">🛡</div>
+                <span>CareerLaunch</span>
+            </div>
+
+            <div class="sidebar-label">ADMINISTRATION</div>
+
+            <nav class="sidebar-nav">
+                <a href="admin-dashboard.jsp" class="menu-item">
+                    <span>▦</span> Admin Dashboard
+                </a>
+                <a href="admin-internships.jsp" class="menu-item active">
+                    <span>💼</span> Manage Internships
+                </a>
+                <a href="admin-applications.jsp" class="menu-item">
+                    <span>▤</span> Application Review
+                </a>
+                <a href="admin-students.jsp" class="menu-item">
+                    <span>👥</span> Student Directory
+                </a>
+                <a href="admin-audit.jsp" class="menu-item">
+                    <span>📋</span> Security Audit Log
+                </a>
+                <a href="internships.jsp" class="menu-item" target="_blank">
+                    <span>⌕</span> Student Portal View
+                </a>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <a href="<%= request.getContextPath() %>/LogoutServlet"
+                   class="menu-item logout-link"
+                   onclick="return confirm('Are you sure you want to exit the administrator console?');">
+                    <span>↪</span> Admin Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="dashboard-main">
+
+            <!-- TOPBAR -->
+            <header class="dashboard-topbar">
+                <div class="topbar-title">
+                    <span class="breadcrumb"><a href="admin-dashboard.jsp" style="text-decoration: none; color: inherit;">Control Panel</a> /</span>
+                    <strong>Internship Management</strong>
+                </div>
+
+                <div class="topbar-profile">
+                    <div class="profile-avatar" style="background: linear-gradient(135deg, #dc2626, #b91c1c);"><%= initial %></div>
+                    <div>
+                        <strong><%= escapeHtml(fullName) %></strong>
+                        <span class="admin-badge">Administrator</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- FEEDBACK MESSAGES FROM QUERY PARAMETERS -->
+            <% if (request.getParameter("msg") != null && !request.getParameter("msg").trim().isEmpty()) { %>
+                <div class="alert-box alert-success" style="margin-top: 20px;">
+                    <span>✓</span>
+                    <div><%= escapeHtml(request.getParameter("msg")) %></div>
+                </div>
+            <% } %>
+
+            <% if (request.getParameter("error") != null && !request.getParameter("error").trim().isEmpty()) { %>
+                <div class="alert-box alert-error" style="margin-top: 20px;">
+                    <span>⚠</span>
+                    <div><%= escapeHtml(request.getParameter("error")) %></div>
+                </div>
+            <% } %>
+
+            <% if (dbError != null) { %>
+                <div class="alert-box alert-error" style="margin-top: 20px;">
+                    <span>⚠</span>
+                    <div><%= escapeHtml(dbError) %></div>
+                </div>
+            <% } %>
+
+            <!-- HEADER & ACTION -->
+            <section class="section-heading" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2>Internship Opportunities Catalog</h2>
+                    <p>Create new listings, update requirements, and activate or close recruitment opportunities in real time.</p>
+                </div>
+                <button type="button" class="btn-add-new" onclick="openAddModal()">
+                    <span>+</span> Post New Internship
+                </button>
+            </section>
+
+            <!-- METRIC STATS CARDS -->
+            <div class="stats-grid">
+                <div class="stat-card <%= filterParam == null ? "active" : "" %>" onclick="filterByStatus('all')">
+                    <div class="label">Total Listed</div>
+                    <div class="value" style="color: #4f46e5;"><%= totalCount %></div>
+                </div>
+                <div class="stat-card <%= "ACTIVE".equals(filterParam) ? "active" : "" %>" onclick="filterByStatus('ACTIVE')">
+                    <div class="label">Active &amp; Open</div>
+                    <div class="value" style="color: #16a34a;"><%= activeCount %></div>
+                </div>
+                <div class="stat-card <%= "INACTIVE".equals(filterParam) ? "active" : "" %>" onclick="filterByStatus('INACTIVE')">
+                    <div class="label">Inactive &amp; Closed</div>
+                    <div class="value" style="color: #dc2626;"><%= inactiveCount %></div>
+                </div>
+            </div>
+
+            <!-- CONTROLS & SEARCH BAR -->
+            <div class="controls-bar">
+                <div class="filter-group">
+                    <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-right: 4px;">Status:</span>
+                    <button type="button" class="filter-btn <%= filterParam == null ? "active" : "" %>" onclick="filterByStatus('all')">All (<%= totalCount %>)</button>
+                    <button type="button" class="filter-btn <%= "ACTIVE".equals(filterParam) ? "active" : "" %>" onclick="filterByStatus('ACTIVE')">Active (<%= activeCount %>)</button>
+                    <button type="button" class="filter-btn <%= "INACTIVE".equals(filterParam) ? "active" : "" %>" onclick="filterByStatus('INACTIVE')">Inactive (<%= inactiveCount %>)</button>
+                </div>
+
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="liveSearchInput" class="search-input" placeholder="Search title, company, skills..." onkeyup="applyFilters()">
+                </div>
+            </div>
+
+            <!-- INTERNSHIPS TABLE OR EMPTY STATE -->
+            <% if (allInternships.isEmpty()) { %>
+                <div class="empty-state">
+                    <div style="font-size: 48px; color: #cbd5e1; margin-bottom: 12px;">💼</div>
+                    <h3 style="color: #1e1b4b; margin-bottom: 8px;">No Internships Found</h3>
+                    <p style="color: #64748b; font-size: 14px; max-width: 480px; margin: 0 auto 16px auto;">
+                        Click "Post New Internship" above to publish your first opportunity for MCA students.
+                    </p>
+                    <button type="button" class="btn-add-new" onclick="openAddModal()">
+                        <span>+</span> Post New Internship
+                    </button>
+                </div>
+            <% } else { %>
+                <div class="table-container">
+                    <table class="internships-table" id="internshipsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Role &amp; Category</th>
+                                <th>Company &amp; Location</th>
+                                <th>Stipend &amp; Duration</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <%
+                                for (Internship item : allInternships) {
+                                    boolean isActive = item.isActive();
+                                    String status = item.getStatus() != null ? item.getStatus().toUpperCase() : "ACTIVE";
+                                    boolean matchesInitialFilter = (filterParam == null || filterParam.equalsIgnoreCase(status));
+
+                                    String title = item.getTitle() != null ? item.getTitle() : "Untitled";
+                                    String company = item.getCompany() != null ? item.getCompany() : "Unknown";
+                                    String location = item.getLocation() != null ? item.getLocation() : "Remote";
+                                    String workMode = item.getWorkMode() != null ? item.getWorkMode() : "Remote";
+                                    String category = item.getCategory() != null ? item.getCategory() : "General";
+                                    String stipend = item.getStipend() != null ? item.getStipend() : "Unpaid";
+                                    String duration = item.getDuration() != null ? item.getDuration() : "N/A";
+                                    String skillsStr = item.getSkillsString();
+                            %>
+                                <tr class="intern-row"
+                                    id="row-int-<%= item.getId() %>"
+                                    data-status="<%= status %>"
+                                    data-search="<%= escapeHtml((title + " " + company + " " + location + " " + category + " " + skillsStr + " " + item.getId()).toLowerCase()) %>"
+                                    style="<%= matchesInitialFilter ? "" : "display: none;" %>">
+                                    <td>
+                                        <span class="id-badge">#INT-<%= item.getId() %></span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a;"><%= escapeHtml(title) %></div>
+                                        <div style="margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                            <span class="category-pill"><%= escapeHtml(category) %></span>
+                                            <% if (!skillsStr.isEmpty()) { %>
+                                                <span style="font-size: 11.5px; color: #64748b;">• <%= escapeHtml(skillsStr) %></span>
+                                            <% } %>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #1e1b4b;"><%= escapeHtml(company) %></div>
+                                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                                            📍 <%= escapeHtml(location) %> &bull; <span class="mode-pill"><%= escapeHtml(workMode) %></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #059669; font-size: 13px;"><%= escapeHtml(stipend) %></div>
+                                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">⏳ <%= escapeHtml(duration) %></div>
+                                    </td>
+                                    <td>
+                                        <span id="badge-<%= item.getId() %>" class="<%= isActive ? "status-badge-active" : "status-badge-inactive" %>">
+                                            <%= isActive ? "Active" : "Inactive" %>
+                                        </span>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button type="button"
+                                                class="btn-action-edit"
+                                                onclick="openEditModal(<%= item.getId() %>)">
+                                            ✎ Edit
+                                        </button>
+                                        <button type="button"
+                                                id="btn-toggle-<%= item.getId() %>"
+                                                class="btn-action-toggle <%= isActive ? "btn-action-deactivate" : "btn-action-activate" %>"
+                                                onclick="toggleStatus(<%= item.getId() %>, '<%= isActive ? "INACTIVE" : "ACTIVE" %>', '<%= escapeJs(title) %>')">
+                                            <%= isActive ? "Deactivate" : "Activate" %>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+
+                    <div id="noResultsNotice" style="display: none; padding: 40px 20px; text-align: center; color: #64748b;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+                        <p style="font-weight: 600; font-size: 14px;">No internships found matching the selected status or search filter.</p>
+                    </div>
+                </div>
+            <% } %>
+
+        </main>
+    </div>
+
+    <!-- ADD / EDIT INTERNSHIP MODAL -->
+    <div id="internshipModal" class="modal-overlay" onclick="handleBackdropClick(event)">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title" id="modalTitle">Post New Internship</div>
+                    <span id="modalIdTag" class="id-badge" style="display: none; margin-top: 4px;">#INT-0</span>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeModal()" aria-label="Close modal">&times;</button>
+            </div>
+
+            <form id="internshipForm" onsubmit="handleFormSubmit(event)">
+                <input type="hidden" id="formAction" name="action" value="create">
+                <input type="hidden" id="formInternshipId" name="internshipId" value="">
+
+                <div class="modal-body">
+                    <div id="modalFormError" class="alert-box alert-error" style="display: none; margin-bottom: 16px;"></div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="inpTitle">Internship Title <span class="req">*</span></label>
+                            <input type="text" id="inpTitle" name="title" class="form-input" required maxlength="150" placeholder="e.g. Java Development Intern">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="inpCompany">Company Name <span class="req">*</span></label>
+                            <input type="text" id="inpCompany" name="company" class="form-input" required maxlength="150" placeholder="e.g. TechNova Solutions">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="inpLocation">Location</label>
+                            <input type="text" id="inpLocation" name="location" class="form-input" maxlength="100" placeholder="e.g. Bengaluru, Karnataka">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="inpWorkMode">Work Mode <span class="req">*</span></label>
+                            <select id="inpWorkMode" name="workMode" class="form-select" required>
+                                <option value="Remote">Remote</option>
+                                <option value="Hybrid">Hybrid</option>
+                                <option value="On-site">On-site</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="inpDuration">Duration</label>
+                            <input type="text" id="inpDuration" name="duration" class="form-input" maxlength="50" placeholder="e.g. 3 Months, 6 Months">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="inpStipend">Stipend</label>
+                            <input type="text" id="inpStipend" name="stipend" class="form-input" maxlength="50" placeholder="e.g. ₹15,000 / month, ₹20,000 / month">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="inpCategory">Category <span class="req">*</span></label>
+                            <input type="text" id="inpCategory" name="category" class="form-input" maxlength="100" placeholder="e.g. Java, Web Development, Data Science" list="categoryOptions">
+                            <datalist id="categoryOptions">
+                                <option value="Java">
+                                <option value="Web Development">
+                                <option value="Data Science">
+                                <option value="Cyber Security">
+                                <option value="Cloud / DevOps">
+                                <option value="Mobile App Development">
+                                <option value="AI / Machine Learning">
+                            </datalist>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="inpStatus">Listing Status <span class="req">*</span></label>
+                            <select id="inpStatus" name="status" class="form-select" required>
+                                <option value="ACTIVE">ACTIVE (Open &amp; Listed to Students)</option>
+                                <option value="INACTIVE">INACTIVE (Closed &amp; Hidden from Students)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="inpSkills">Key Skills (Comma-separated)</label>
+                        <input type="text" id="inpSkills" name="skills" class="form-input" maxlength="255" placeholder="e.g. Java, Spring Boot, MySQL, REST APIs">
+                        <div class="form-help">Separate individual skills with commas. Max 255 characters.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="inpDescription">Role Description</label>
+                        <textarea id="inpDescription" name="description" class="form-textarea" rows="3" placeholder="Describe the internship opportunity, team, and learning objectives..."></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="inpResponsibilities">Responsibilities (One per line)</label>
+                        <textarea id="inpResponsibilities" name="responsibilities" class="form-textarea" rows="3" placeholder="Enter key job responsibilities, one item per line..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn-submit" id="btnSubmitForm">
+                        <span id="btnSubmitIcon">✓</span>
+                        <span id="btnSubmitLabel">Save Internship</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toastMessage" class="toast-msg">
+        <span id="toastIcon">✓</span>
+        <span id="toastText">Action successful</span>
+    </div>
+
+    <script>
+        var currentFilter = '<%= filterParam != null ? filterParam : "all" %>';
+
+        function filterByStatus(status) {
+            currentFilter = status;
+            var buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(function(btn) {
+                var btnStatus = btn.textContent.toUpperCase();
+                if (status === 'all' && btn.textContent.indexOf('All') === 0) {
+                    btn.classList.add('active');
+                } else if (status !== 'all' && btnStatus.indexOf(status) === 0) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            var statCards = document.querySelectorAll('.stat-card');
+            statCards.forEach(function(card) {
+                card.classList.remove('active');
+            });
+
+            applyFilters();
+        }
+
+        function applyFilters() {
+            var searchVal = (document.getElementById('liveSearchInput') ? document.getElementById('liveSearchInput').value : '').toLowerCase().trim();
+            var rows = document.querySelectorAll('.intern-row');
+            var visibleCount = 0;
+
+            rows.forEach(function(row) {
+                var rowStatus = row.getAttribute('data-status') || '';
+                var rowSearch = row.getAttribute('data-search') || '';
+
+                var matchesStatus = (currentFilter === 'all' || rowStatus.toUpperCase() === currentFilter.toUpperCase());
+                var matchesSearch = (!searchVal || rowSearch.indexOf(searchVal) !== -1);
+
+                if (matchesStatus && matchesSearch) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            var noResultsNotice = document.getElementById('noResultsNotice');
+            if (noResultsNotice) {
+                if (visibleCount === 0 && rows.length > 0) {
+                    noResultsNotice.style.display = 'block';
+                } else {
+                    noResultsNotice.style.display = 'none';
+                }
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Post New Internship';
+            document.getElementById('modalIdTag').style.display = 'none';
+            document.getElementById('formAction').value = 'create';
+            document.getElementById('formInternshipId').value = '';
+            document.getElementById('btnSubmitLabel').textContent = 'Create Internship';
+
+            // Reset inputs
+            document.getElementById('inpTitle').value = '';
+            document.getElementById('inpCompany').value = '';
+            document.getElementById('inpLocation').value = '';
+            document.getElementById('inpWorkMode').value = 'Remote';
+            document.getElementById('inpDuration').value = '3 Months';
+            document.getElementById('inpStipend').value = '₹15,000 / month';
+            document.getElementById('inpCategory').value = 'Java';
+            document.getElementById('inpStatus').value = 'ACTIVE';
+            document.getElementById('inpSkills').value = '';
+            document.getElementById('inpDescription').value = '';
+            document.getElementById('inpResponsibilities').value = '';
+
+            document.getElementById('modalFormError').style.display = 'none';
+            document.getElementById('internshipModal').style.display = 'flex';
+        }
+
+        function openEditModal(id) {
+            document.getElementById('modalTitle').textContent = 'Edit Internship Listing';
+            document.getElementById('modalIdTag').textContent = '#INT-' + id;
+            document.getElementById('modalIdTag').style.display = 'inline-block';
+            document.getElementById('formAction').value = 'update';
+            document.getElementById('formInternshipId').value = id;
+            document.getElementById('btnSubmitLabel').textContent = 'Save Changes';
+            document.getElementById('modalFormError').style.display = 'none';
+
+            // Fetch details from servlet
+            fetch('<%= request.getContextPath() %>/AdminInternshipServlet?id=' + id, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    document.getElementById('inpTitle').value = data.title || '';
+                    document.getElementById('inpCompany').value = data.company || '';
+                    document.getElementById('inpLocation').value = data.location || '';
+                    document.getElementById('inpWorkMode').value = data.workMode || 'Remote';
+                    document.getElementById('inpDuration').value = data.duration || '';
+                    document.getElementById('inpStipend').value = data.stipend || '';
+                    document.getElementById('inpCategory').value = data.category || '';
+                    document.getElementById('inpStatus').value = data.status || 'ACTIVE';
+                    document.getElementById('inpSkills').value = data.skills || '';
+                    document.getElementById('inpDescription').value = data.description || '';
+                    document.getElementById('inpResponsibilities').value = data.responsibilities || '';
+
+                    document.getElementById('internshipModal').style.display = 'flex';
+                } else {
+                    showToast(data.message || 'Failed to load internship details.', true);
+                }
+            })
+            .catch(function(err) {
+                showToast('Network error loading internship details.', true);
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('internshipModal').style.display = 'none';
+        }
+
+        function handleBackdropClick(event) {
+            if (event.target === document.getElementById('internshipModal')) {
+                closeModal();
+            }
+        }
+
+        function showToast(message, isError) {
+            var toast = document.getElementById('toastMessage');
+            var icon = document.getElementById('toastIcon');
+            var text = document.getElementById('toastText');
+
+            if (!toast) return;
+
+            icon.textContent = isError ? '⚠' : '✓';
+            toast.style.background = isError ? '#991b1b' : '#0f172a';
+            text.textContent = message;
+
+            toast.style.display = 'flex';
+            setTimeout(function() {
+                toast.style.display = 'none';
+            }, 3500);
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            var form = document.getElementById('internshipForm');
+            var submitBtn = document.getElementById('btnSubmitForm');
+            var errorEl = document.getElementById('modalFormError');
+
+            errorEl.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span>⏳</span> Saving...';
+
+            var formData = new URLSearchParams(new FormData(form));
+
+            fetch('<%= request.getContextPath() %>/AdminInternshipServlet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData.toString()
+            })
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    return { ok: res.ok, status: res.status, data: data };
+                });
+            })
+            .then(function(result) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>✓</span> ' + (document.getElementById('formAction').value === 'create' ? 'Create Internship' : 'Save Changes');
+
+                if (result.ok && result.data.success) {
+                    showToast(result.data.message || 'Internship successfully saved.', false);
+                    closeModal();
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    var errorMsg = (result.data && result.data.message) ? result.data.message : 'Failed to save internship.';
+                    errorEl.textContent = errorMsg;
+                    errorEl.style.display = 'flex';
+                    showToast(errorMsg, true);
+                }
+            })
+            .catch(function(err) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>✓</span> Save Internship';
+                var fallbackMsg = 'Network or server error occurred. Please try again.';
+                errorEl.textContent = fallbackMsg;
+                errorEl.style.display = 'flex';
+                showToast(fallbackMsg, true);
+            });
+        }
+
+        function toggleStatus(id, newStatus, title) {
+            var actionWord = (newStatus === 'ACTIVE') ? 'activate' : 'deactivate';
+            var confirmMsg = 'Are you sure you want to ' + actionWord + ' "' + title + '"?';
+            if (newStatus === 'INACTIVE') {
+                confirmMsg += '\n\nNote: Inactive internships will be hidden from student listings and will not accept new applications.';
+            }
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            var formData = new URLSearchParams();
+            formData.append('action', 'toggle_status');
+            formData.append('internshipId', id);
+            formData.append('status', newStatus);
+
+            fetch('<%= request.getContextPath() %>/AdminInternshipServlet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData.toString()
+            })
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    return { ok: res.ok, status: res.status, data: data };
+                });
+            })
+            .then(function(result) {
+                if (result.ok && result.data.success) {
+                    showToast(result.data.message, false);
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 800);
+                } else {
+                    var errorMsg = (result.data && result.data.message) ? result.data.message : 'Failed to update status.';
+                    showToast(errorMsg, true);
+                }
+            })
+            .catch(function(err) {
+                showToast('Network error while toggling internship status.', true);
+            });
+        }
+    </script>
+</body>
+</html>

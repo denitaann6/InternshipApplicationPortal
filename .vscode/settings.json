@@ -1,0 +1,15 @@
+{
+    "java.project.sourcePaths": [
+        "src"
+    ],
+    "java.project.outputPath": "out",
+    "java.project.referencedLibraries": [
+        "lib/servlet-api.jar",
+        "lib/jsp-api.jar",
+        "lib/mysql-connector-j-9.7.0.jar",
+        "C:/xampp/tomcat/lib/servlet-api.jar",
+        "C:/xampp/tomcat/lib/jsp-api.jar",
+        "C:/xampp/tomcat/lib/mysql-connector-j-9.7.0.jar"
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic"
+}

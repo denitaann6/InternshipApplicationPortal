@@ -1,0 +1,332 @@
+package com.internshipportal.service;
+
+import com.internshipportal.model.User;
+import com.internshipportal.exception.InvalidInputException;
+import com.internshipportal.util.PasswordUtil;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * UserService - Handles user account management, registration, and authentication.
+ * Stores accounts in a ConcurrentHashMap for fast in-memory operations and persists
+ * registered users to a persistent data file outside the temporary deployment directory.
+ */
+public class UserService {
+
+    private static final UserService INSTANCE = new UserService();
+
+    private final Map<String, User> users = new ConcurrentHashMap<>();
+    private int nextUserId = 1;
+    private final File storageFile;
+
+    // Default constructor with demonstration account and persistent file loader
+    public UserService() {
+        this.storageFile = resolveStorageFile();
+
+        // Seed demonstration account (hashed for security, backward-compatible)
+        User demoUser = new User(
+            nextUserId++,
+            "Ann",
+            PasswordUtil.hashPassword("Ann@123"),
+            "ann@gmail.com",
+            "Ann",
+            "",
+            "MCA",
+            "Software Development"
+        );
+
+        users.put(demoUser.getUsername().toLowerCase(), demoUser);
+
+        // Load previously registered users from persistent storage
+        loadUsersFromFile();
+    }
+
+    // Constructor used by Main.java
+    public UserService(User user) {
+        this();
+
+        if (user != null
+                && user.getUsername() != null
+                && !user.getUsername().trim().isEmpty()) {
+
+            users.put(user.getUsername().trim().toLowerCase(), user);
+
+            if (user.getUserId() >= nextUserId) {
+                nextUserId = user.getUserId() + 1;
+            }
+        }
+    }
+
+    // Return the shared service instance for servlets
+    public static UserService getInstance() {
+        return INSTANCE;
+    }
+
+    // Register a new user
+    public synchronized boolean registerUser(User user)
+            throws InvalidInputException {
+
+        if (user == null || !user.isValid()) {
+            throw new InvalidInputException(
+                "Please enter valid user details."
+            );
+        }
+
+        String username = user.getUsername().trim().toLowerCase();
+        String email = user.getEmail().trim().toLowerCase();
+
+        for (User existing : users.values()) {
+            if (existing.getUsername().equalsIgnoreCase(username)) {
+                throw new InvalidInputException(
+                    "Username already exists."
+                );
+            }
+
+            if (existing.getEmail().equalsIgnoreCase(email)) {
+                throw new InvalidInputException(
+                    "Email already exists."
+                );
+            }
+        }
+
+        user.setUserId(nextUserId++);
+        user.setUsername(user.getUsername().trim());
+        user.setEmail(user.getEmail().trim());
+
+        // Cryptographically hash the password before saving (never plain text)
+        String rawPassword = user.getPassword();
+        String hashedPassword = PasswordUtil.hashPassword(rawPassword);
+        user.setPassword(hashedPassword);
+
+        // Add to active memory store
+        users.put(username, user);
+
+        // Persist to disk outside temporary deployment directory
+        appendUserToFile(user);
+
+        return true;
+    }
+
+    // Authenticate username/email and password
+    public boolean authenticate(String usernameOrEmail, String password) {
+
+        if (usernameOrEmail == null || password == null) {
+            return false;
+        }
+
+        User user = findByUsernameOrEmail(usernameOrEmail.trim());
+
+        return user != null
+                && user.getPassword() != null
+                && PasswordUtil.verifyPassword(password, user.getPassword());
+    }
+
+    // Find a user by username or email
+    public User findByUsernameOrEmail(String usernameOrEmail) {
+
+        if (usernameOrEmail == null
+                || usernameOrEmail.trim().isEmpty()) {
+            return null;
+        }
+
+        String value = usernameOrEmail.trim();
+
+        User user = users.get(value.toLowerCase());
+
+        if (user != null) {
+            return user;
+        }
+
+        for (User existing : users.values()) {
+            if (existing.getEmail().equalsIgnoreCase(value)) {
+                return existing;
+            }
+        }
+
+        return null;
+    }
+
+    // Check whether a username exists
+    public boolean usernameExists(String username) {
+
+        if (username == null) {
+            return false;
+        }
+
+        return users.containsKey(username.trim().toLowerCase());
+    }
+
+    // Check whether an email exists
+    public boolean emailExists(String email) {
+
+        if (email == null) {
+            return false;
+        }
+
+        for (User user : users.values()) {
+            if (user.getEmail().equalsIgnoreCase(email.trim())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /* =====================================================
+       PERSISTENT FILE STORAGE HELPERS
+       ===================================================== */
+
+    /**
+     * Resolves the persistent file location outside the temporary deployment folder.
+     */
+    private File resolveStorageFile() {
+        // 1. Explicit system property or environment variable
+        String customDir = System.getProperty("careerlaunch.data.dir");
+        if (customDir == null || customDir.trim().isEmpty()) {
+            customDir = System.getenv("CAREERLAUNCH_DATA_PATH");
+        }
+        if (customDir != null && !customDir.trim().isEmpty()) {
+            File dir = new File(customDir.trim());
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            return new File(dir, "registered_users.dat");
+        }
+
+        // 2. Primary project path: C:\Users\HP\Desktop\MCA\JAVA_PROJECT\InternshipApplicationPortal\data
+        File projectDataDir = new File("C:\\Users\\HP\\Desktop\\MCA\\JAVA_PROJECT\\InternshipApplicationPortal\\data");
+        if (projectDataDir.exists() || projectDataDir.mkdirs()) {
+            return new File(projectDataDir, "registered_users.dat");
+        }
+
+        // 3. Fallback: User home directory (.careerlaunch)
+        File fallbackDir = new File(System.getProperty("user.home"), ".careerlaunch");
+        if (!fallbackDir.exists()) {
+            fallbackDir.mkdirs();
+        }
+        return new File(fallbackDir, "registered_users.dat");
+    }
+
+    /**
+     * Loads saved users from the persistent data file on initialization.
+     */
+    private synchronized void loadUsersFromFile() {
+        if (storageFile == null || !storageFile.exists()) {
+            return;
+        }
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(storageFile), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+
+                try {
+                    User user = deserializeUser(line);
+                    if (user != null && user.getUsername() != null) {
+                        String key = user.getUsername().trim().toLowerCase();
+                        users.put(key, user);
+                        if (user.getUserId() >= nextUserId) {
+                            nextUserId = user.getUserId() + 1;
+                        }
+                    }
+                } catch (Exception ex) {
+                    System.err.println("[UserService] Skipping corrupted record: " + line);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("[UserService] Error reading persistent users: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Appends a newly registered user to the persistent file.
+     */
+    private synchronized void appendUserToFile(User user) {
+        if (storageFile == null) {
+            return;
+        }
+
+        try {
+            File parent = storageFile.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+
+            try (BufferedWriter writer = new BufferedWriter(
+                    new OutputStreamWriter(new FileOutputStream(storageFile, true), StandardCharsets.UTF_8))) {
+                writer.write(serializeUser(user));
+                writer.newLine();
+                writer.flush();
+            }
+        } catch (IOException e) {
+            System.err.println("[UserService] Error saving user to persistent file: " + e.getMessage());
+        }
+    }
+
+    private String serializeUser(User u) {
+        return u.getUserId() + "|"
+                + encode(u.getUsername()) + "|"
+                + encode(u.getPassword()) + "|"
+                + encode(u.getEmail()) + "|"
+                + encode(u.getFullName()) + "|"
+                + encode(u.getPhone()) + "|"
+                + encode(u.getCourse()) + "|"
+                + encode(u.getInternshipInterest());
+    }
+
+    private User deserializeUser(String line) {
+        String[] parts = line.split("\\|", -1);
+        if (parts.length < 8) {
+            return null;
+        }
+        int id = Integer.parseInt(parts[0]);
+        String username = decode(parts[1]);
+        String password = decode(parts[2]);
+        String email = decode(parts[3]);
+        String fullName = decode(parts[4]);
+        String phone = decode(parts[5]);
+        String course = decode(parts[6]);
+        String interest = decode(parts[7]);
+
+        return new User(id, username, password, email, fullName, phone, course, interest);
+    }
+
+    private String encode(String value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            return value;
+        }
+    }
+
+    private String decode(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            return value;
+        }
+    }
+}

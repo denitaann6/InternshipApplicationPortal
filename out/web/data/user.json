@@ -1,0 +1,13 @@
+
+{
+    "users": [
+        {
+            "fullName": "Ann",
+            "username": "Ann",
+            "email": "ann@example.com",
+            "phone": "9876543210",
+            "course": "MCA",
+            "internshipInterest": "Java Development"
+        }
+    ]
+}

@@ -1,0 +1,493 @@
+package com.internshipportal.service;
+
+import com.internshipportal.exception.InvalidInputException;
+import com.internshipportal.model.User;
+import com.internshipportal.util.DBUtil;
+import com.internshipportal.util.PasswordUtil;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * UserService - Authoritative user account management, registration, and authentication service.
+ * Uses MySQL (careerlaunch_db.users) as the primary authoritative persistent store via JDBC
+ * PreparedStatements. Seamlessly migrates existing accounts from registered_users.dat without
+ * modifying or deleting that file.
+ */
+public class UserService {
+
+    private static final UserService INSTANCE = new UserService();
+
+    // In-memory cache for ultra-fast session/profile access and fallback
+    private final Map<String, User> cache = new ConcurrentHashMap<>();
+    private final File storageFile;
+    private boolean idColumnIsUserId = true;
+
+    // Default constructor used by Servlets and Application
+    public UserService() {
+        this.storageFile = resolveStorageFile();
+
+        // Perform safe migration from file to MySQL if database is accessible
+        migrateAccountsFromFile();
+    }
+
+    // Constructor used by Main.java
+    public UserService(User user) {
+        this();
+
+        if (user != null && user.getUsername() != null && !user.getUsername().trim().isEmpty()) {
+            cache.put(user.getUsername().trim().toLowerCase(), user);
+        }
+    }
+
+    // Return the shared service instance for servlets
+    public static UserService getInstance() {
+        return INSTANCE;
+    }
+
+    /**
+     * Registers a new student account.
+     * Persists directly to MySQL (careerlaunch_db.users) as the authoritative store.
+     * Performs server-side duplicate checks for username and email.
+     */
+    public synchronized boolean registerUser(User user) throws InvalidInputException {
+        if (user == null || !user.isValid()) {
+            throw new InvalidInputException("Please enter valid user details.");
+        }
+
+        String username = user.getUsername().trim();
+        String email = user.getEmail().trim();
+
+        // 1. Authoritative duplicate check via MySQL
+        if (usernameExists(username)) {
+            throw new InvalidInputException("Username already exists.");
+        }
+
+        if (emailExists(email)) {
+            throw new InvalidInputException("Email already exists.");
+        }
+
+        // 2. Cryptographically hash password before saving (SHA-256 + 16-byte random salt)
+        String rawPassword = user.getPassword();
+        String hashedPassword = PasswordUtil.hashPassword(rawPassword);
+        user.setPassword(hashedPassword);
+        user.setUsername(username);
+        user.setEmail(email);
+
+        // 3. Persist into MySQL users table
+        String insertSql = "INSERT INTO users (username, password, email, full_name, phone, course, internship_interest) "
+                         + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+
+            stmt.setString(1, user.getUsername());
+            stmt.setString(2, user.getPassword());
+            stmt.setString(3, user.getEmail());
+            stmt.setString(4, user.getFullName() != null ? user.getFullName().trim() : "");
+            stmt.setString(5, user.getPhone() != null ? user.getPhone().trim() : "");
+            stmt.setString(6, user.getCourse() != null ? user.getCourse().trim() : "");
+            stmt.setString(7, user.getInternshipInterest() != null ? user.getInternshipInterest().trim() : "");
+
+            int affected = stmt.executeUpdate();
+            if (affected > 0) {
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        user.setUserId(generatedKeys.getInt(1));
+                    }
+                }
+            }
+
+            // Update in-memory cache
+            cache.put(username.toLowerCase(), user);
+            return true;
+
+        } catch (SQLException e) {
+            System.err.println("[UserService] Database error during registration: " + e.getMessage());
+            // If database is not reachable, do not silently lose user
+            throw new InvalidInputException("Registration could not be completed in database: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Authenticates a user against MySQL using username or email and password.
+     * Compatible with PasswordUtil.verifyPassword() (SHA-256 salt:hash format).
+     */
+    public boolean authenticate(String usernameOrEmail, String password) {
+        if (usernameOrEmail == null || password == null) {
+            return false;
+        }
+
+        User user = findByUsernameOrEmail(usernameOrEmail.trim());
+        if (user != null && user.getPassword() != null) {
+            return PasswordUtil.verifyPassword(password, user.getPassword());
+        }
+        return false;
+    }
+
+    /**
+     * Finds a user by username or email from MySQL authoritative store.
+     */
+    public User findByUsernameOrEmail(String usernameOrEmail) {
+        if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty()) {
+            return null;
+        }
+
+        String searchVal = usernameOrEmail.trim().toLowerCase();
+
+        String sql = "SELECT * FROM users WHERE LOWER(username) = ? OR LOWER(email) = ? LIMIT 1";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, searchVal);
+            stmt.setString(2, searchVal);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = mapRowToUser(rs);
+                    cache.put(user.getUsername().toLowerCase(), user);
+                    return user;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[UserService] Database query failed in findByUsernameOrEmail: " + e.getMessage());
+            // Fallback to cache if database error occurs
+            return searchCache(searchVal);
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks whether a username already exists in MySQL.
+     */
+    public boolean usernameExists(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return false;
+        }
+
+        String sql = "SELECT COUNT(*) FROM users WHERE LOWER(username) = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username.trim().toLowerCase());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[UserService] DB check failed in usernameExists: " + e.getMessage());
+            return cache.containsKey(username.trim().toLowerCase());
+        }
+        return false;
+    }
+
+    /**
+     * Checks whether an email already exists in MySQL.
+     */
+    public boolean emailExists(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return false;
+        }
+
+        String sql = "SELECT COUNT(*) FROM users WHERE LOWER(email) = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, email.trim().toLowerCase());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[UserService] DB check failed in emailExists: " + e.getMessage());
+            for (User u : cache.values()) {
+                if (u.getEmail() != null && u.getEmail().equalsIgnoreCase(email.trim())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /* =====================================================
+       SAFE DATA MIGRATION FROM registered_users.dat TO MYSQL
+       ===================================================== */
+
+    /**
+     * Inspects data/registered_users.dat and migrates accounts to MySQL.
+     * Crucial guarantees:
+     * 1. registered_users.dat is NEVER deleted or overwritten.
+     * 2. Existing accounts in MySQL are not overwritten.
+     * 3. Conflicts/duplicates are reported in logs, never silently discarded.
+     */
+    public synchronized void migrateAccountsFromFile() {
+        // Collect candidate users to migrate
+        List<User> candidates = new ArrayList<>();
+
+        // 1. Seed demonstration account (Ann)
+        User demoUser = new User(
+            1,
+            "Ann",
+            PasswordUtil.hashPassword("Ann@123"),
+            "ann@gmail.com",
+            "Ann",
+            "",
+            "MCA",
+            "Software Development"
+        );
+        candidates.add(demoUser);
+        cache.put(demoUser.getUsername().toLowerCase(), demoUser);
+
+        // 2. Read accounts from persistent storage file (registered_users.dat)
+        if (storageFile != null && storageFile.exists()) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(storageFile), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) {
+                        continue;
+                    }
+                    try {
+                        User user = deserializeUser(line);
+                        if (user != null && user.getUsername() != null) {
+                            candidates.add(user);
+                            cache.put(user.getUsername().toLowerCase(), user);
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("[UserService] Corrupted record skipped in dat file: " + line);
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("[UserService] Could not read registered_users.dat: " + e.getMessage());
+            }
+        }
+
+        // 3. Test database connection
+        try (Connection conn = DBUtil.getConnection()) {
+            // Database is available! Check table column name for user ID
+            detectColumnNames(conn);
+
+            for (User candidate : candidates) {
+                migrateSingleUser(conn, candidate);
+            }
+
+            System.out.println("[UserService] Database check and migration completed successfully for "
+                    + candidates.size() + " accounts.");
+
+        } catch (SQLException e) {
+            System.err.println("==================================================================");
+            System.err.println("[UserService] NOTICE: MySQL database connection not established yet.");
+            System.err.println("Database URL: " + DBUtil.getDbUrl());
+            System.err.println("Database User: " + DBUtil.getDbUser());
+            System.err.println("Error Detail: " + e.getMessage());
+            System.err.println("To enable MySQL persistence, configure DB_PASSWORD environment variable");
+            System.err.println("or set db.password in WEB-INF/db.properties.");
+            System.err.println("Active accounts have been loaded into memory cache to preserve service.");
+            System.err.println("==================================================================");
+        }
+    }
+
+    private void detectColumnNames(Connection conn) {
+        try (Statement s = conn.createStatement();
+             ResultSet rs = s.executeQuery("SELECT * FROM users WHERE 1=0")) {
+            java.sql.ResultSetMetaData meta = rs.getMetaData();
+            for (int i = 1; i <= meta.getColumnCount(); i++) {
+                String col = meta.getColumnName(i).toLowerCase();
+                if ("user_id".equals(col)) {
+                    idColumnIsUserId = true;
+                    return;
+                } else if ("id".equals(col)) {
+                    idColumnIsUserId = false;
+                    return;
+                }
+            }
+        } catch (SQLException ignored) {
+        }
+    }
+
+    private void migrateSingleUser(Connection conn, User user) {
+        String username = user.getUsername().trim();
+        String email = user.getEmail().trim();
+
+        // Check if user already exists in database
+        String checkSql = "SELECT user_id, username, email FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?";
+        if (!idColumnIsUserId) {
+            checkSql = "SELECT id, username, email FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?";
+        }
+
+        try (PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+            checkStmt.setString(1, username.toLowerCase());
+            checkStmt.setString(2, email.toLowerCase());
+
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (rs.next()) {
+                    String existingUser = rs.getString("username");
+                    String existingEmail = rs.getString("email");
+                    System.out.println("[UserService] Migration Conflict/Duplicate: User '" + username
+                            + "' or email '" + email + "' matches existing record in MySQL ('"
+                            + existingUser + "', '" + existingEmail + "'). Preserving database row.");
+                    return;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[UserService] Error checking existing user: " + e.getMessage());
+            return;
+        }
+
+        // Insert new record preserving original userId and password hash
+        String idCol = idColumnIsUserId ? "user_id" : "id";
+        String insertSql;
+
+        if (user.getUserId() > 0) {
+            insertSql = "INSERT INTO users (" + idCol + ", username, password, email, full_name, phone, course, internship_interest) "
+                      + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        } else {
+            insertSql = "INSERT INTO users (username, password, email, full_name, phone, course, internship_interest) "
+                      + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        }
+
+        try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+            int p = 1;
+            if (user.getUserId() > 0) {
+                insertStmt.setInt(p++, user.getUserId());
+            }
+            insertStmt.setString(p++, username);
+            insertStmt.setString(p++, user.getPassword());
+            insertStmt.setString(p++, email);
+            insertStmt.setString(p++, user.getFullName() != null ? user.getFullName() : "");
+            insertStmt.setString(p++, user.getPhone() != null ? user.getPhone() : "");
+            insertStmt.setString(p++, user.getCourse() != null ? user.getCourse() : "");
+            insertStmt.setString(p++, user.getInternshipInterest() != null ? user.getInternshipInterest() : "");
+
+            insertStmt.executeUpdate();
+            System.out.println("[UserService] Successfully migrated user '" + username + "' (ID: "
+                    + user.getUserId() + ") to MySQL.");
+
+        } catch (SQLException e) {
+            System.err.println("[UserService] Failed to insert migrated user '" + username + "': " + e.getMessage());
+        }
+    }
+
+    private User mapRowToUser(ResultSet rs) throws SQLException {
+        int id = 0;
+        try {
+            id = rs.getInt("user_id");
+        } catch (SQLException e) {
+            try {
+                id = rs.getInt("id");
+            } catch (SQLException ignored) {}
+        }
+
+        String username = rs.getString("username");
+        String password = rs.getString("password");
+        String email = rs.getString("email");
+
+        String fullName = "";
+        try {
+            fullName = rs.getString("full_name");
+        } catch (SQLException e) {
+            try {
+                fullName = rs.getString("fullName");
+            } catch (SQLException ignored) {}
+        }
+
+        String phone = "";
+        try {
+            phone = rs.getString("phone");
+        } catch (SQLException ignored) {}
+
+        String course = "";
+        try {
+            course = rs.getString("course");
+        } catch (SQLException ignored) {}
+
+        String interest = "";
+        try {
+            interest = rs.getString("internship_interest");
+        } catch (SQLException e) {
+            try {
+                interest = rs.getString("internshipInterest");
+            } catch (SQLException ignored) {}
+        }
+
+        return new User(id, username, password, email, fullName, phone, course, interest);
+    }
+
+    private User searchCache(String searchVal) {
+        User u = cache.get(searchVal);
+        if (u != null) return u;
+        for (User user : cache.values()) {
+            if (user.getEmail() != null && user.getEmail().equalsIgnoreCase(searchVal)) {
+                return user;
+            }
+        }
+        return null;
+    }
+
+    private File resolveStorageFile() {
+        String customDir = System.getProperty("careerlaunch.data.dir");
+        if (customDir == null || customDir.trim().isEmpty()) {
+            customDir = System.getenv("CAREERLAUNCH_DATA_PATH");
+        }
+        if (customDir != null && !customDir.trim().isEmpty()) {
+            File dir = new File(customDir.trim());
+            return new File(dir, "registered_users.dat");
+        }
+
+        File projectDataDir = new File("C:\\Users\\HP\\Desktop\\MCA\\JAVA_PROJECT\\InternshipApplicationPortal\\data");
+        if (projectDataDir.exists()) {
+            return new File(projectDataDir, "registered_users.dat");
+        }
+
+        File fallbackDir = new File(System.getProperty("user.home"), ".careerlaunch");
+        return new File(fallbackDir, "registered_users.dat");
+    }
+
+    private User deserializeUser(String line) {
+        String[] parts = line.split("\\|", -1);
+        if (parts.length < 8) {
+            return null;
+        }
+        int id = Integer.parseInt(parts[0]);
+        String username = decode(parts[1]);
+        String password = decode(parts[2]);
+        String email = decode(parts[3]);
+        String fullName = decode(parts[4]);
+        String phone = decode(parts[5]);
+        String course = decode(parts[6]);
+        String interest = decode(parts[7]);
+
+        return new User(id, username, password, email, fullName, phone, course, interest);
+    }
+
+    private String decode(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            return value;
+        }
+    }
+}

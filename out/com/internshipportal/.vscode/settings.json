@@ -1,0 +1,10 @@
+
+{
+    "java.project.referencedLibraries": [
+        "C:/xampp/tomcat/lib/servlet-api.jar"
+    ],
+    "java.project.sourcePaths": [
+        "src"
+    ],
+    "java.project.outputPath": "out"
+}

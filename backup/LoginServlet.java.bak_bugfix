@@ -1,0 +1,110 @@
+
+package com.internshipportal.servlet;
+
+import com.internshipportal.model.User;
+import com.internshipportal.service.UserService;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+@WebServlet(name = "LoginServlet", urlPatterns = {"/LoginServlet"})
+public class LoginServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+    private UserService userService;
+
+    @Override
+    public void init() throws ServletException {
+        userService = UserService.getInstance();
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request,
+                         HttpServletResponse response)
+            throws ServletException, IOException {
+
+        HttpSession session = request.getSession(false);
+
+        if (session != null && session.getAttribute("currentUser") != null) {
+            response.sendRedirect(request.getContextPath() + "/dashboard.jsp");
+        } else {
+            response.sendRedirect(request.getContextPath() + "/login.html");
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request,
+                          HttpServletResponse response)
+            throws ServletException, IOException {
+
+        request.setCharacterEncoding("UTF-8");
+
+        String username = request.getParameter("username");
+        String password = request.getParameter("password");
+
+        if (username == null || username.trim().isEmpty()
+                || password == null || password.isEmpty()) {
+            redirectWithError(request, response,
+                    "Please enter both username and password.");
+            return;
+        }
+
+        username = username.trim();
+
+        // Always authenticate the submitted credentials.
+        if (!userService.authenticate(username, password)) {
+            // A failed login must not retain a previous authenticated session.
+            HttpSession oldSession = request.getSession(false);
+
+            if (oldSession != null) {
+                oldSession.invalidate();
+            }
+
+            redirectWithError(request, response,
+                    "Incorrect username/email or password. Please try again.");
+            return;
+        }
+
+        User user = userService.findByUsernameOrEmail(username);
+
+        if (user == null) {
+            redirectWithError(request, response,
+                    "Unable to load user details. Please try again.");
+            return;
+        }
+
+        // Create a fresh session only after successful authentication.
+        HttpSession session = request.getSession(true);
+        session.setAttribute("currentUser", user);
+        session.setAttribute("username", user.getUsername());
+        session.setAttribute("fullName", user.getFullName());
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("course", user.getCourse());
+        session.setAttribute("loginTime", new Date());
+
+        session.setMaxInactiveInterval(30 * 60);
+
+        response.sendRedirect(request.getContextPath() + "/dashboard.jsp");
+    }
+
+    private void redirectWithError(HttpServletRequest request,
+                                   HttpServletResponse response,
+                                   String message)
+            throws IOException {
+
+        String encoded = URLEncoder.encode(
+                message, StandardCharsets.UTF_8.name());
+
+        response.sendRedirect(
+                request.getContextPath() + "/login.html?error=" + encoded);
+    }
+}

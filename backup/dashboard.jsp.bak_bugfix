@@ -1,0 +1,348 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="com.internshipportal.model.User" %>
+<%@ page import="com.internshipportal.model.Internship" %>
+<%@ page import="java.util.List" %>
+<%
+    // Prevent browser back-button caching of protected content
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+
+    // Phase 4 Requirement: Protect dashboard against unauthenticated direct access
+    User currentUser = (User) session.getAttribute("currentUser");
+    if (currentUser == null) {
+        String msg = "Please log in to access your dashboard.";
+        response.sendRedirect(request.getContextPath() + "/login.html?error=" + java.net.URLEncoder.encode(msg, "UTF-8"));
+        return;
+    }
+
+    String fullName = currentUser.getFullName() != null && !currentUser.getFullName().isEmpty()
+            ? currentUser.getFullName() : currentUser.getUsername();
+    String firstName = fullName.trim().split("\\s+")[0];
+    String initial = fullName.trim().substring(0, 1).toUpperCase();
+    String course = currentUser.getCourse() != null && !currentUser.getCourse().isEmpty() ? currentUser.getCourse() : "MCA";
+    String email = currentUser.getEmail() != null ? currentUser.getEmail() : "student@example.com";
+    String phone = currentUser.getPhone() != null && !currentUser.getPhone().isEmpty() ? currentUser.getPhone() : "Not provided";
+    String interest = currentUser.getInternshipInterest() != null && !currentUser.getInternshipInterest().isEmpty()
+            ? currentUser.getInternshipInterest() : "Software Development";
+
+    List<Internship> sampleInternships = Internship.getSampleInternships();
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | CareerLaunch</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">✦</div>
+                <span>CareerLaunch</span>
+            </div>
+
+            <div class="sidebar-label">WORKSPACE</div>
+
+            <nav class="sidebar-nav">
+                <a href="dashboard.jsp" class="menu-item active">
+                    <span>▦</span> Dashboard
+                </a>
+                <a href="internships.jsp" class="menu-item">
+                    <span>⌕</span> Find Internships
+                </a>
+                <a href="applications.jsp" class="menu-item">
+                    <span>▤</span> My Applications
+                </a>
+                <a href="profile.jsp" class="menu-item">
+                    <span>♙</span> My Profile
+                </a>
+                <a href="about.jsp" class="menu-item">
+                    <span>ⓘ</span> About Portal
+                </a>
+                <a href="contact.jsp" class="menu-item">
+                    <span>✉</span> Contact & Support
+                </a>
+                <a href="help.jsp" class="menu-item">
+                    <span>?</span> Help & FAQ
+                </a>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-help">
+                    <div class="help-icon">✦</div>
+                    <h3>Need some help?</h3>
+                    <p>We're here to support your career journey.</p>
+                    <a href="contact.jsp">Contact Support →</a>
+                </div>
+
+                <a href="<%= request.getContextPath() %>/LogoutServlet"
+                   class="menu-item logout-link"
+                   onclick="return confirm('Are you sure you want to log out?');">
+                    <span>↪</span> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="dashboard-main">
+
+            <!-- TOP BAR -->
+            <header class="dashboard-topbar">
+                <div class="topbar-title">
+                    <span class="breadcrumb">Workspace /</span>
+                    <strong>Dashboard</strong>
+                </div>
+
+                <div class="topbar-actions">
+                    <label class="dashboard-search">
+                        <span>⌕</span>
+                        <input type="search"
+                               id="internshipSearch"
+                               placeholder="Search internships...">
+                    </label>
+
+                    <div class="topbar-profile">
+                        <div class="profile-avatar"><%= initial %></div>
+                        <div>
+                            <strong><%= fullName %></strong>
+                            <small><%= course %> Student</small>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- WELCOME BANNER -->
+            <section class="welcome-section">
+                <div class="welcome-content">
+                    <span class="welcome-tag">AUTHENTICATED SESSION ACTIVE</span>
+
+                    <h1>Good day, <span><%= firstName %></span>!</h1>
+
+                    <p>
+                        Welcome back to your personalized CareerLaunch dashboard.
+                        Track your applications, discover tailored roles in <strong><%= interest %></strong>,
+                        and accelerate your MCA professional career.
+                    </p>
+
+                    <a href="internships.jsp" class="primary-button">
+                        Explore Internships <span>→</span>
+                    </a>
+                </div>
+
+                <div class="welcome-decoration" aria-hidden="true">
+                    <div class="decoration-circle circle-one"></div>
+                    <div class="decoration-circle circle-two"></div>
+                    <div class="decoration-card">
+                        <span class="decoration-star">✦</span>
+                        <strong>Logged In As</strong>
+                        <span><%= currentUser.getUsername() %></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PAGE HEADING -->
+            <section class="section-heading">
+                <div>
+                    <h2>Your Overview</h2>
+                    <p>Live snapshot of your internship opportunities and applications.</p>
+                </div>
+            </section>
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+                <article class="stat-card">
+                    <div class="stat-icon stat-purple">▤</div>
+                    <div class="stat-label">Applications Sent</div>
+                    <div class="stat-number">2</div>
+                    <div class="stat-note">1 Under Review, 1 Shortlisted</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-blue">⌕</div>
+                    <div class="stat-label">Available Internships</div>
+                    <div class="stat-number"><%= sampleInternships.size() %></div>
+                    <div class="stat-note">Curated opportunities</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-orange">♡</div>
+                    <div class="stat-label">Saved Internships</div>
+                    <div class="stat-number" id="savedCount">1</div>
+                    <div class="stat-note">Bookmarked for later</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-green">✓</div>
+                    <div class="stat-label">Profile Status</div>
+                    <div class="stat-number">Verified</div>
+                    <div class="stat-note"><%= course %> · <%= email %></div>
+                </article>
+            </section>
+
+            <!-- RECOMMENDED INTERNSHIPS -->
+            <section class="dashboard-section" id="internships">
+                <div class="section-heading">
+                    <div>
+                        <h2>Recommended Internships for <%= course %></h2>
+                        <p>Opportunities matching your specialization in <%= interest %>.</p>
+                    </div>
+                    <a href="internships.jsp" class="section-link">View All Opportunities →</a>
+                </div>
+
+                <div class="internship-grid" id="internshipGrid">
+                    <%
+                        int count = 0;
+                        for (Internship job : sampleInternships) {
+                            if (count++ >= 3) break; // show top 3 on dashboard
+                            String badgeClass = "Remote".equalsIgnoreCase(job.getWorkMode()) ? "logo-purple" :
+                                                "Hybrid".equalsIgnoreCase(job.getWorkMode()) ? "logo-blue" : "logo-orange";
+                    %>
+                    <article class="internship-card" data-search="<%= job.getTitle().toLowerCase() %> <%= job.getCompany().toLowerCase() %>">
+                        <div class="internship-card-top">
+                            <div class="company-logo <%= badgeClass %>"><%= job.getCompany().substring(0, 1) %></div>
+                            <span class="job-type"><%= job.getWorkMode() %></span>
+                        </div>
+
+                        <h3><%= job.getTitle() %></h3>
+                        <p class="company-name"><%= job.getCompany() %></p>
+
+                        <div class="job-details">
+                            <span>⌖ <%= job.getLocation() %></span>
+                            <span>◷ <%= job.getDuration() %></span>
+                        </div>
+
+                        <div class="job-tags">
+                            <% for (String skill : job.getSkills()) { %>
+                                <span><%= skill %></span>
+                            <% } %>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; margin-top: 15px;">
+                            <a href="internships.jsp" class="primary-button" style="padding: 8px 14px; font-size: 13px; text-decoration: none;">
+                                View & Apply
+                            </a>
+                            <button type="button"
+                                    class="secondary-button save-button"
+                                    data-job="<%= job.getTitle() %>"
+                                    onclick="toggleSave(this)">
+                                ♡ Save
+                            </button>
+                        </div>
+                    </article>
+                    <% } %>
+                </div>
+            </section>
+
+            <!-- LOWER DASHBOARD -->
+            <section class="dashboard-lower-grid">
+
+                <!-- PROFILE SNAPSHOT -->
+                <article class="dashboard-panel" id="profile">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>My Profile Snapshot</h2>
+                            <p>Authenticated Student Record</p>
+                        </div>
+                        <span class="panel-icon">♙</span>
+                    </div>
+
+                    <div class="profile-summary">
+                        <div class="large-avatar"><%= initial %></div>
+                        <div>
+                            <h3><%= fullName %></h3>
+                            <p><%= email %></p>
+                        </div>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Username</span>
+                        <strong><%= currentUser.getUsername() %></strong>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Course</span>
+                        <strong><%= course %></strong>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Phone</span>
+                        <strong><%= phone %></strong>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Interest</span>
+                        <strong><%= interest %></strong>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <a href="profile.jsp" class="section-link">View Full Profile Details →</a>
+                    </div>
+                </article>
+
+                <!-- RECENT APPLICATIONS -->
+                <article class="dashboard-panel" id="applications">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Recent Applications</h2>
+                            <p>Status tracking for applied roles</p>
+                        </div>
+                        <span class="panel-icon">▤</span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                        <div style="background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #1e1b4b; display: block; font-size: 14px;">Java Developer Intern</strong>
+                                <small style="color: #64748b;">TechNova Solutions · Applied Oct 2026</small>
+                            </div>
+                            <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                Under Review
+                            </span>
+                        </div>
+
+                        <div style="background: #f8fafc; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #1e1b4b; display: block; font-size: 14px;">Data Analytics Intern</strong>
+                                <small style="color: #64748b;">InnovateAI Analytics · Applied Oct 2026</small>
+                            </div>
+                            <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                Shortlisted
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 18px;">
+                        <a href="applications.jsp" class="section-link">Manage All Applications →</a>
+                    </div>
+                </article>
+
+            </section>
+
+            <!-- FOOTER -->
+            <footer class="dashboard-footer">
+                <span>© 2026 CareerLaunch · MCA Practical Project (26MCA1L211)</span>
+                <span>Protected by Server-Side Session Tracking</span>
+            </footer>
+
+        </main>
+    </div>
+
+    <script>
+        function toggleSave(btn) {
+            if (btn.textContent.includes("♥")) {
+                btn.textContent = "♡ Save";
+                btn.classList.remove("saved");
+            } else {
+                btn.textContent = "♥ Saved";
+                btn.classList.add("saved");
+            }
+        }
+    </script>
+</body>
+</html>

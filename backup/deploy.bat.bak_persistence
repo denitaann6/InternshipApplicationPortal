@@ -1,0 +1,41 @@
+@echo off
+set "JAVA_HOME=C:\Program Files\Java\jdk-26.0.2"
+set "CATALINA_HOME=C:\xampp\tomcat"
+set "DEPLOY_DIR=%CATALINA_HOME%\webapps\InternshipApplicationPortal"
+
+echo ===================================================
+echo   CareerLaunch - Build and Deployment Script
+echo ===================================================
+echo Destination: %DEPLOY_DIR%
+
+REM 1. Ensure target directory structure exists
+if not exist "%DEPLOY_DIR%\WEB-INF\classes" mkdir "%DEPLOY_DIR%\WEB-INF\classes"
+if not exist "%DEPLOY_DIR%\css" mkdir "%DEPLOY_DIR%\css"
+if not exist "%DEPLOY_DIR%\js" mkdir "%DEPLOY_DIR%\js"
+if not exist "%DEPLOY_DIR%\data" mkdir "%DEPLOY_DIR%\data"
+
+REM 2. Compile all Java classes into WEB-INF/classes
+echo [1/3] Compiling Java classes with servlet-api.jar...
+javac -cp "%CATALINA_HOME%\lib\servlet-api.jar;lib\*" -d "%DEPLOY_DIR%\WEB-INF\classes" src\com\internshipportal\Main.java src\com\internshipportal\exception\*.java src\com\internshipportal\filter\*.java src\com\internshipportal\interfaces\*.java src\com\internshipportal\model\*.java src\com\internshipportal\service\*.java src\com\internshipportal\servlet\*.java
+
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Java compilation failed! Aborting deployment.
+    exit /b %ERRORLEVEL%
+)
+
+REM Also compile into project's out directory for console runner
+if not exist "out" mkdir "out"
+javac -cp "%CATALINA_HOME%\lib\servlet-api.jar;lib\*" -d "out" src\com\internshipportal\Main.java src\com\internshipportal\exception\*.java src\com\internshipportal\filter\*.java src\com\internshipportal\interfaces\*.java src\com\internshipportal\model\*.java src\com\internshipportal\service\*.java src\com\internshipportal\servlet\*.java
+
+REM 3. Copy web assets and deployment descriptor
+echo [2/3] Deploying web pages, JSPs, and web.xml...
+copy /Y "src\web\*.html" "%DEPLOY_DIR%\" >nul
+copy /Y "src\web\*.jsp" "%DEPLOY_DIR%\" >nul
+copy /Y "src\web\WEB-INF\web.xml" "%DEPLOY_DIR%\WEB-INF\" >nul
+copy /Y "src\web\css\*.css" "%DEPLOY_DIR%\css\" >nul
+copy /Y "src\web\js\*.js" "%DEPLOY_DIR%\js\" >nul
+copy /Y "src\web\data\*.json" "%DEPLOY_DIR%\data\" >nul
+
+echo [3/3] Deployment complete!
+echo Application URL: http://localhost:8080/InternshipApplicationPortal/
+echo ===================================================

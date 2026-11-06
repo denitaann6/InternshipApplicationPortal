@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>CareerLaunch | Login</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <!-- Left Career Section -->
+        <div class="career-section">
+
+            <div class="brand">
+                <div class="brand-icon">✦</div>
+                <span>CareerLaunch</span>
+            </div>
+
+            <div class="career-content">
+                <p class="small-title">INTERNSHIP APPLICATION PORTAL</p>
+
+                <h1>
+                    Start where<br>
+                    your <span>future</span><br>
+                    begins.
+                </h1>
+
+                <p class="description">
+                    Discover internship opportunities, build your
+                    professional profile and take the next step
+                    towards your career.
+                </p>
+
+                <div class="career-stats">
+                    <div>
+                        <strong>500+</strong>
+                        <span>Opportunities</span>
+                    </div>
+
+                    <div>
+                        <strong>120+</strong>
+                        <span>Companies</span>
+                    </div>
+
+                    <div>
+                        <strong>95%</strong>
+                        <span>Success Rate</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- Login Section -->
+        <div class="login-section">
+
+            <div class="login-card">
+
+                <!-- Admin Access Toggle (Top-Right Corner of Login Card) -->
+                <div class="admin-corner-wrapper">
+                    <button type="button" id="adminToggleBtn" class="admin-corner-btn" onclick="toggleAdminMode()" title="Toggle Administrator Login Mode">
+                        <span class="admin-corner-icon">🛡</span>
+                        <span id="adminToggleText">Admin Login</span>
+                    </button>
+                </div>
+
+                <!-- Admin Access Mode Indicator (Revealed when Admin Login is clicked) -->
+                <div id="adminIndicator" class="admin-mode-banner" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 16px;">🛡</span>
+                        <div>
+                            <strong>Administrator Portal Access</strong>
+                            <small style="display: block; color: #7f1d1d; font-size: 11px;">Enter administrator credentials below to access the management console.</small>
+                        </div>
+                    </div>
+                    <button type="button" onclick="toggleAdminMode()" class="admin-mode-close" title="Switch back to student login">✕</button>
+                </div>
+
+                <div class="welcome">
+                    <p id="welcomePretitle">WELCOME BACK</p>
+
+                    <h2 id="welcomeTitle">Sign in to your account</h2>
+
+                    <span id="welcomeSubtitle">
+                        Continue your journey with CareerLaunch.
+                    </span>
+                </div>
+
+                <!-- Server Feedback Notification Banners -->
+                <div id="serverSuccessMessage" style="display: none; background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+                <div id="serverErrorMessage" style="display: none; background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+                <div id="serverLogoutMessage" style="display: none; background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+
+                <form id="loginForm" action="LoginServlet" method="POST">
+
+                    <!-- Username -->
+                    <div class="input-group">
+                        <label for="username">Username or Email</label>
+
+                        <div class="input-box">
+                            <span class="input-icon">◉</span>
+
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="Enter your username or email"
+                            >
+                        </div>
+
+                        <small id="usernameError"></small>
+                    </div>
+
+
+                    <!-- Password -->
+                    <div class="input-group">
+                        <label for="password">Password</label>
+
+                        <div class="input-box">
+                            <span class="input-icon">◆</span>
+
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                placeholder="Enter your password"
+                            >
+
+                            <button
+                                type="button"
+                                class="show-password"
+                                onclick="togglePassword()">
+                                Show
+                            </button>
+                        </div>
+
+                        <small id="passwordError"></small>
+                    </div>
+
+
+                    <!-- Options -->
+                    <div class="login-options">
+
+                        <label class="remember">
+                            <input type="checkbox">
+                            <span>Remember me</span>
+                        </label>
+
+                        <a href="#">Forgot password?</a>
+
+                    </div>
+
+
+                    <!-- Login Button -->
+                    <button type="submit" class="login-button">
+                        Sign In
+                        <span>→</span>
+                    </button>
+
+                </form>
+
+
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+
+
+                <p class="register-link">
+                    New to CareerLaunch?
+                    <a href="register.html">Create an account</a>
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="js/validation.js"></script>
+    <script>
+        function toggleAdminMode() {
+            var indicator = document.getElementById('adminIndicator');
+            var btn = document.getElementById('adminToggleBtn');
+            var btnText = document.getElementById('adminToggleText');
+            var pretitle = document.getElementById('welcomePretitle');
+            var title = document.getElementById('welcomeTitle');
+            var subtitle = document.getElementById('welcomeSubtitle');
+            var userInput = document.getElementById('username');
+
+            if (!indicator) return;
+
+            var isCurrentlyVisible = (indicator.style.display === 'flex');
+
+            if (!isCurrentlyVisible) {
+                indicator.style.display = 'flex';
+                btn.classList.add('active');
+                btnText.textContent = 'Student Login';
+                if (pretitle) pretitle.textContent = 'ADMINISTRATIVE ACCESS';
+                if (title) title.textContent = 'Administrator Console';
+                if (subtitle) subtitle.textContent = 'Secure management portal for internships and applications.';
+                if (userInput) {
+                    userInput.placeholder = 'Enter admin username or email';
+                    userInput.focus();
+                }
+            } else {
+                indicator.style.display = 'none';
+                btn.classList.remove('active');
+                btnText.textContent = 'Admin Login';
+                if (pretitle) pretitle.textContent = 'WELCOME BACK';
+                if (title) title.textContent = 'Sign in to your account';
+                if (subtitle) subtitle.textContent = 'Continue your journey with CareerLaunch.';
+                if (userInput) userInput.placeholder = 'Enter your username or email';
+            }
+        }
+    </script>
+</body>
+</html>

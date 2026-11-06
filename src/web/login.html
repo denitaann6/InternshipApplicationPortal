@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>CareerLaunch | Login</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <!-- Left Career Section -->
+        <div class="career-section">
+
+            <div class="brand">
+                <div class="brand-icon">✦</div>
+                <span>CareerLaunch</span>
+            </div>
+
+            <div class="career-content">
+                <p class="small-title">INTERNSHIP APPLICATION PORTAL</p>
+
+                <h1>
+                    Start where<br>
+                    your <span>future</span><br>
+                    begins.
+                </h1>
+
+                <p class="description">
+                    Discover internship opportunities, build your
+                    professional profile and take the next step
+                    towards your career.
+                </p>
+
+                <div class="career-stats">
+                    <div>
+                        <strong>500+</strong>
+                        <span>Opportunities</span>
+                    </div>
+
+                    <div>
+                        <strong>120+</strong>
+                        <span>Companies</span>
+                    </div>
+
+                    <div>
+                        <strong>95%</strong>
+                        <span>Success Rate</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- Login Section -->
+        <div class="login-section">
+
+            <div class="login-card">
+
+                <!-- Compact Student / Admin Choice Box -->
+                <div class="role-selector-container">
+                    <div class="role-selector-box" role="tablist" aria-label="Portal Role Selection">
+                        <button type="button" id="roleBtnStudent" class="role-tab active student" onclick="selectLoginRole('STUDENT')" role="tab" aria-selected="true" title="Student Portal Sign In">
+                            <span class="role-tab-icon">🎓</span>
+                            <span class="role-tab-title">Student Login</span>
+                        </button>
+                        <button type="button" id="roleBtnAdmin" class="role-tab admin" onclick="selectLoginRole('ADMIN')" role="tab" aria-selected="false" title="Administrator Portal Sign In">
+                            <span class="role-tab-icon">🛡️</span>
+                            <span class="role-tab-title">Admin Login</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Distinct Role Indicator Badge -->
+                <div id="roleIndicator" class="role-indicator student">
+                    <span class="role-indicator-badge" id="roleIndicatorBadge">STUDENT</span>
+                    <span id="roleIndicatorMsg" class="role-indicator-msg">Sign in to search internships &amp; submit applications</span>
+                </div>
+
+                <div class="welcome">
+                    <p id="welcomePretitle">WELCOME BACK</p>
+
+                    <h2 id="welcomeTitle">Sign in to your account</h2>
+
+                    <span id="welcomeSubtitle">
+                        Continue your journey with CareerLaunch.
+                    </span>
+                </div>
+
+                <!-- Server Feedback Notification Banners -->
+                <div id="serverSuccessMessage" style="display: none; background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+                <div id="serverErrorMessage" style="display: none; background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+                <div id="serverLogoutMessage" style="display: none; background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 600;"></div>
+
+                <form id="loginForm" action="LoginServlet" method="POST">
+
+                    <!-- Username -->
+                    <div class="input-group">
+                        <label for="username" id="usernameLabel">Username or Email</label>
+
+                        <div class="input-box">
+                            <span class="input-icon">◉</span>
+
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="Enter your username or email"
+                                autocomplete="username"
+                                required
+                            >
+                        </div>
+
+                        <small id="usernameError"></small>
+                    </div>
+
+
+                    <!-- Password -->
+                    <div class="input-group">
+                        <label for="password">Password</label>
+
+                        <div class="input-box">
+                            <span class="input-icon">◆</span>
+
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required
+                            >
+
+                            <button
+                                type="button"
+                                class="show-password"
+                                onclick="togglePassword()">
+                                Show
+                            </button>
+                        </div>
+
+                        <small id="passwordError"></small>
+                    </div>
+
+
+                    <!-- Options -->
+                    <div class="login-options">
+
+                        <label class="remember">
+                            <input type="checkbox" name="remember">
+                            <span>Remember me</span>
+                        </label>
+
+                        <a href="#" onclick="alert('Please contact your administrator or portal support to reset your password.'); return false;">Forgot password?</a>
+
+                    </div>
+
+
+                    <!-- Login Button -->
+                    <button type="submit" id="submitLoginBtn" class="login-button">
+                        Sign In
+                        <span>→</span>
+                    </button>
+
+                </form>
+
+
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+
+
+                <p class="register-link" id="registerPrompt">
+                    New to CareerLaunch?
+                    <a href="register.html">Create an account</a>
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="js/validation.js"></script>
+    <script>
+        function selectLoginRole(role) {
+            var btnStudent = document.getElementById('roleBtnStudent');
+            var btnAdmin = document.getElementById('roleBtnAdmin');
+            var indicator = document.getElementById('roleIndicator');
+            var badge = document.getElementById('roleIndicatorBadge');
+            var msg = document.getElementById('roleIndicatorMsg');
+            var pretitle = document.getElementById('welcomePretitle');
+            var title = document.getElementById('welcomeTitle');
+            var subtitle = document.getElementById('welcomeSubtitle');
+            var userLabel = document.getElementById('usernameLabel');
+            var userInput = document.getElementById('username');
+            var submitBtn = document.getElementById('submitLoginBtn');
+
+            if (!btnStudent || !btnAdmin || !indicator) return;
+
+            if (role === 'ADMIN') {
+                btnStudent.className = 'role-tab';
+                btnStudent.setAttribute('aria-selected', 'false');
+                btnAdmin.className = 'role-tab active admin';
+                btnAdmin.setAttribute('aria-selected', 'true');
+
+                indicator.className = 'role-indicator admin';
+                if (badge) badge.textContent = 'ADMIN';
+                if (msg) msg.textContent = 'Administrator Console · Enter credentials for portal management';
+
+                if (pretitle) pretitle.textContent = 'ADMINISTRATIVE ACCESS';
+                if (title) title.textContent = 'Admin Sign In';
+                if (subtitle) subtitle.textContent = 'Secure management portal for internships, applications, and reviews.';
+
+                if (userLabel) userLabel.textContent = 'Admin Username or Email';
+                if (userInput) {
+                    userInput.placeholder = 'Enter admin username or email';
+                    userInput.focus();
+                }
+                if (submitBtn) submitBtn.innerHTML = 'Sign In as Admin <span>→</span>';
+            } else {
+                btnStudent.className = 'role-tab active student';
+                btnStudent.setAttribute('aria-selected', 'true');
+                btnAdmin.className = 'role-tab admin';
+                btnAdmin.setAttribute('aria-selected', 'false');
+
+                indicator.className = 'role-indicator student';
+                if (badge) badge.textContent = 'STUDENT';
+                if (msg) msg.textContent = 'Student Portal · Search internships & submit applications';
+
+                if (pretitle) pretitle.textContent = 'WELCOME BACK';
+                if (title) title.textContent = 'Sign in to your account';
+                if (subtitle) subtitle.textContent = 'Continue your journey with CareerLaunch.';
+
+                if (userLabel) userLabel.textContent = 'Username or Email';
+                if (userInput) userInput.placeholder = 'Enter your username or email';
+                if (submitBtn) submitBtn.innerHTML = 'Sign In <span>→</span>';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('role') === 'admin') {
+                selectLoginRole('ADMIN');
+            }
+        });
+    </script>
+</body>
+</html>

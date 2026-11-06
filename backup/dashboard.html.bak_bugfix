@@ -1,0 +1,569 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | CareerLaunch</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">C</div>
+                <span>CareerLaunch</span>
+            </div>
+
+            <div class="sidebar-label">WORKSPACE</div>
+
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="menu-item active">
+                    <span>▦</span> Dashboard
+                </a>
+
+                <a href="#internships" class="menu-item">
+                    <span>⌕</span> Find Internships
+                </a>
+
+                <a href="#applications" class="menu-item">
+                    <span>▤</span> My Applications
+                </a>
+
+                <a href="#saved" class="menu-item">
+                    <span>♡</span> Saved Internships
+                </a>
+
+                <a href="#profile" class="menu-item">
+                    <span>♙</span> My Profile
+                </a>
+
+                <a href="#applications" class="menu-item">
+                    <span>◷</span> Application Status
+                </a>
+
+                <a href="#notifications" class="menu-item">
+                    <span>♧</span> Notifications
+                </a>
+
+                <a href="#settings" class="menu-item">
+                    <span>⚙</span> Settings
+                </a>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-help">
+                    <div class="help-icon">✦</div>
+                    <h3>Need some help?</h3>
+                    <p>We're here to support your career journey.</p>
+                    <a href="mailto:support@careerlaunch.example">
+                        Contact Support →
+                    </a>
+                </div>
+
+                <a href="#" class="menu-item logout-link"
+                   onclick="logoutUser(); return false;">
+                    <span>↪</span> Logout
+                </a>
+            </div>
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+        <main class="dashboard-main">
+
+            <!-- TOP BAR -->
+            <header class="dashboard-topbar">
+                <div class="topbar-title">
+                    <span class="breadcrumb">Workspace /</span>
+                    <strong>Dashboard</strong>
+                </div>
+
+                <div class="topbar-actions">
+                    <label class="dashboard-search">
+                        <span>⌕</span>
+                        <input type="search"
+                               id="internshipSearch"
+                               placeholder="Search internships...">
+                    </label>
+
+                    <button type="button"
+                            class="notification-button"
+                            aria-label="Notifications"
+                            onclick="showNotificationMessage()">
+                        ♧
+                        <span class="notification-dot"></span>
+                    </button>
+
+                    <div class="topbar-profile">
+                        <div class="profile-avatar" id="topbarAvatar">U</div>
+                        <div>
+                            <strong id="topbarName">User</strong>
+                            <small>Student</small>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+
+            <!-- WELCOME BANNER -->
+            <section class="welcome-section">
+                <div class="welcome-content">
+                    <span class="welcome-tag">YOUR CAREER JOURNEY STARTS HERE</span>
+
+                    <h1>
+                        Good morning, <span id="welcomeName">User</span>!
+                    </h1>
+
+                    <p>
+                        Ready to take the next step in your career?
+                        Discover opportunities, build your skills,
+                        and turn your ambitions into achievements.
+                    </p>
+
+                    <a href="#internships" class="primary-button">
+                        Explore Internships <span>→</span>
+                    </a>
+                </div>
+
+                <div class="welcome-decoration" aria-hidden="true">
+                    <div class="decoration-circle circle-one"></div>
+                    <div class="decoration-circle circle-two"></div>
+                    <div class="decoration-card">
+                        <span class="decoration-star">✦</span>
+                        <strong>Your future</strong>
+                        <span>Starts with one step.</span>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- PAGE HEADING -->
+            <section class="section-heading">
+                <div>
+                    <h2>Your Overview</h2>
+                    <p>Here's a snapshot of your internship journey.</p>
+                </div>
+            </section>
+
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-purple">▤</div>
+                    <div class="stat-label">Applications Sent</div>
+                    <div class="stat-number">0</div>
+                    <div class="stat-note">Start applying today</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-blue">⌕</div>
+                    <div class="stat-label">Available Internships</div>
+                    <div class="stat-number">3</div>
+                    <div class="stat-note">Opportunities to explore</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-orange">♡</div>
+                    <div class="stat-label">Saved Internships</div>
+                    <div class="stat-number" id="savedCount">0</div>
+                    <div class="stat-note">Keep track of your favourites</div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-green">✓</div>
+                    <div class="stat-label">Profile Status</div>
+                    <div class="stat-number">New</div>
+                    <div class="stat-note">Build your student profile</div>
+                </article>
+
+            </section>
+
+
+            <!-- INTERNSHIPS -->
+            <section class="dashboard-section" id="internships">
+                <div class="section-heading">
+                    <div>
+                        <h2>Recommended Internships</h2>
+                        <p>Explore opportunities to begin your professional journey.</p>
+                    </div>
+                    <span class="section-link">Explore opportunities</span>
+                </div>
+
+                <div class="internship-grid" id="internshipGrid">
+
+                    <article class="internship-card"
+                             data-search="technova java developer software programming">
+                        <div class="internship-card-top">
+                            <div class="company-logo logo-purple">T</div>
+                            <span class="job-type">Remote</span>
+                        </div>
+
+                        <h3>Java Developer Intern</h3>
+                        <p class="company-name">TechNova</p>
+
+                        <div class="job-details">
+                            <span>⌖ Remote</span>
+                            <span>◷ 3 Months</span>
+                        </div>
+
+                        <div class="job-tags">
+                            <span>Java</span>
+                            <span>Spring Boot</span>
+                        </div>
+
+                        <button type="button"
+                                class="secondary-button save-button"
+                                data-job="Java Developer Intern"
+                                onclick="toggleSaveInternship(this)">
+                            ♡ Save Internship
+                        </button>
+                    </article>
+
+
+                    <article class="internship-card"
+                             data-search="digitalworks web development frontend html css javascript">
+                        <div class="internship-card-top">
+                            <div class="company-logo logo-blue">D</div>
+                            <span class="job-type">Hybrid</span>
+                        </div>
+
+                        <h3>Web Development Intern</h3>
+                        <p class="company-name">DigitalWorks</p>
+
+                        <div class="job-details">
+                            <span>⌖ Hybrid</span>
+                            <span>◷ 6 Months</span>
+                        </div>
+
+                        <div class="job-tags">
+                            <span>HTML/CSS</span>
+                            <span>JavaScript</span>
+                        </div>
+
+                        <button type="button"
+                                class="secondary-button save-button"
+                                data-job="Web Development Intern"
+                                onclick="toggleSaveInternship(this)">
+                            ♡ Save Internship
+                        </button>
+                    </article>
+
+
+                    <article class="internship-card"
+                             data-search="innovateai data analytics python sql dashboard">
+                        <div class="internship-card-top">
+                            <div class="company-logo logo-orange">I</div>
+                            <span class="job-type">On-site</span>
+                        </div>
+
+                        <h3>Data Analytics Intern</h3>
+                        <p class="company-name">InnovateAI</p>
+
+                        <div class="job-details">
+                            <span>⌖ On-site</span>
+                            <span>◷ 4 Months</span>
+                        </div>
+
+                        <div class="job-tags">
+                            <span>Python</span>
+                            <span>SQL</span>
+                        </div>
+
+                        <button type="button"
+                                class="secondary-button save-button"
+                                data-job="Data Analytics Intern"
+                                onclick="toggleSaveInternship(this)">
+                            ♡ Save Internship
+                        </button>
+                    </article>
+
+                </div>
+
+                <p id="noSearchResults" hidden>
+                    No internships match your search.
+                </p>
+            </section>
+
+
+            <!-- LOWER DASHBOARD -->
+            <section class="dashboard-lower-grid">
+
+                <!-- PROFILE COMPLETION -->
+                <article class="dashboard-panel" id="profile">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>My Profile</h2>
+                            <p>Your account information</p>
+                        </div>
+                        <span class="panel-icon">♙</span>
+                    </div>
+
+                    <div class="profile-summary">
+                        <div class="large-avatar" id="profileAvatar">U</div>
+                        <div>
+                            <h3 id="profileName">User</h3>
+                            <p id="profileEmail">No email available</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Username</span>
+                        <strong id="profileUsername">—</strong>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Course</span>
+                        <strong id="profileCourse">—</strong>
+                    </div>
+
+                    <div class="profile-detail">
+                        <span>Phone</span>
+                        <strong id="profilePhone">—</strong>
+                    </div>
+                </article>
+
+
+                <!-- APPLICATION STATUS -->
+                <article class="dashboard-panel" id="applications">
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Recent Applications</h2>
+                            <p>Track your application activity</p>
+                        </div>
+                        <span class="panel-icon">▤</span>
+                    </div>
+
+                    <div class="empty-state">
+                        <div class="empty-state-icon">▤</div>
+                        <h3>No applications yet</h3>
+                        <p>
+                            Once you start applying for internships,
+                            your application status will appear here.
+                        </p>
+                        <a href="#internships">Find an internship →</a>
+                    </div>
+                </article>
+
+            </section>
+
+
+            <!-- FOOTER -->
+            <footer class="dashboard-footer">
+                <span>© 2026 CareerLaunch</span>
+                <span>Designed for your next career step.</span>
+            </footer>
+
+        </main>
+    </div>
+
+
+    <!-- DASHBOARD JAVASCRIPT -->
+    <script src="js/validation.js"></script>
+
+    <script>
+        // Display information for the currently logged-in user.
+        (function () {
+            const loggedIn =
+                localStorage.getItem("careerLaunchLoggedIn");
+
+            if (loggedIn !== "true") {
+                return;
+            }
+
+            const currentUsername =
+                localStorage.getItem("careerLaunchCurrentUser");
+
+            let users = [];
+
+            try {
+                users = JSON.parse(
+                    localStorage.getItem("careerLaunchUsers") || "[]"
+                );
+
+                if (!Array.isArray(users)) {
+                    users = [];
+                }
+
+                // Support accounts saved by the previous version.
+                const oldUser =
+                    localStorage.getItem("careerLaunchUser");
+
+                if (users.length === 0 && oldUser) {
+                    const parsedOldUser = JSON.parse(oldUser);
+
+                    if (parsedOldUser && parsedOldUser.username) {
+                        users = [parsedOldUser];
+                    }
+                }
+            } catch (error) {
+                console.error("Unable to read account information.", error);
+            }
+
+            const user = users.find(function (account) {
+                return account.username &&
+                    currentUsername &&
+                    account.username.toLowerCase() ===
+                    currentUsername.toLowerCase();
+            });
+
+            if (!user) {
+                return;
+            }
+
+            const fullName = user.fullName || user.username;
+            const firstName = fullName.trim().split(/\s+/)[0];
+            const initial = fullName.trim().charAt(0).toUpperCase();
+
+            // Greeting
+            const welcomeName = document.getElementById("welcomeName");
+            if (welcomeName) {
+                welcomeName.textContent = firstName;
+            }
+
+            // Top profile
+            setText("topbarName", fullName);
+            setText("topbarAvatar", initial);
+
+            // Profile panel
+            setText("profileName", fullName);
+            setText("profileEmail", user.email || "No email available");
+            setText("profileUsername", user.username || "—");
+            setText("profileCourse", user.course || "—");
+            setText("profilePhone", user.phone || "—");
+            setText("profileAvatar", initial);
+
+            // Restore saved internship buttons for this user.
+            const savedKey = "careerLaunchSaved_" + user.username;
+            let savedJobs = [];
+
+            try {
+                savedJobs = JSON.parse(
+                    localStorage.getItem(savedKey) || "[]"
+                );
+
+                if (!Array.isArray(savedJobs)) {
+                    savedJobs = [];
+                }
+            } catch (error) {
+                savedJobs = [];
+            }
+
+            document.querySelectorAll(".save-button").forEach(function (button) {
+                const job = button.dataset.job;
+
+                if (savedJobs.includes(job)) {
+                    button.textContent = "♥ Saved";
+                    button.classList.add("saved");
+                }
+            });
+
+            updateSavedCount(savedJobs.length);
+        })();
+
+        function setText(id, value) {
+            const element = document.getElementById(id);
+
+            if (element) {
+                element.textContent = value;
+            }
+        }
+
+        function getCurrentUsername() {
+            return localStorage.getItem("careerLaunchCurrentUser");
+        }
+
+        function getSavedJobs() {
+            const username = getCurrentUsername();
+
+            if (!username) {
+                return [];
+            }
+
+            try {
+                const jobs = JSON.parse(
+                    localStorage.getItem("careerLaunchSaved_" + username) || "[]"
+                );
+
+                return Array.isArray(jobs) ? jobs : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function toggleSaveInternship(button) {
+            const username = getCurrentUsername();
+
+            if (!username) {
+                alert("Please log in to save internships.");
+                return;
+            }
+
+            const job = button.dataset.job;
+            const savedJobs = getSavedJobs();
+            const index = savedJobs.indexOf(job);
+
+            if (index >= 0) {
+                savedJobs.splice(index, 1);
+                button.textContent = "♡ Save Internship";
+                button.classList.remove("saved");
+            } else {
+                savedJobs.push(job);
+                button.textContent = "♥ Saved";
+                button.classList.add("saved");
+            }
+
+            localStorage.setItem(
+                "careerLaunchSaved_" + username,
+                JSON.stringify(savedJobs)
+            );
+
+            updateSavedCount(savedJobs.length);
+        }
+
+        function updateSavedCount(count) {
+            setText("savedCount", count);
+        }
+
+        function showNotificationMessage() {
+            alert("You have no new notifications.");
+        }
+
+        // Search internship cards.
+        const searchInput = document.getElementById("internshipSearch");
+
+        if (searchInput) {
+            searchInput.addEventListener("input", function () {
+                const query = searchInput.value.trim().toLowerCase();
+                let visibleCount = 0;
+
+                document.querySelectorAll(".internship-card").forEach(
+                    function (card) {
+                        const searchableText =
+                            (card.dataset.search || card.textContent).toLowerCase();
+
+                        const matches = searchableText.includes(query);
+                        card.hidden = !matches;
+
+                        if (matches) {
+                            visibleCount++;
+                        }
+                    }
+                );
+
+                const noResults = document.getElementById("noSearchResults");
+
+                if (noResults) {
+                    noResults.hidden = visibleCount !== 0;
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
